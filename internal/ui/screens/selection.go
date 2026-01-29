@@ -1,10 +1,10 @@
 package screens
 
 import (
+	"github.com/Pierre-Malherbe/patternforge/internal/pattern"
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/patternforge/patternforge/internal/pattern"
-	"github.com/patternforge/patternforge/internal/ui/styles"
 )
 
 // PatternItem wraps pattern for the list component

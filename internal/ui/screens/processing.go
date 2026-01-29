@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/patternforge/patternforge/internal/ui/styles"
 )
 
 // ProcessingScreen shows a spinner while Claude processes

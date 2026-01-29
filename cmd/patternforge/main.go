@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Pierre-Malherbe/patternforge/internal/claude"
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/patternforge/patternforge/internal/claude"
-	"github.com/patternforge/patternforge/internal/ui/styles"
 )
 
 const version = "0.0.1"
@@ -150,7 +150,7 @@ EXAMPLES:
   # Check version
   patternforge --version
 
-For more info: https://github.com/patternforge/patternforge
+For more info: https://github.com/Pierre-Malherbe/patternforge
 `
 	fmt.Print(help)
 }

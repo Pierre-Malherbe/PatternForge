@@ -155,7 +155,7 @@ echo $PATH | grep -o '[^:]*bin'
 pwd  # Should end in /patternforge
 
 # Module name must match
-head -1 go.mod  # Should show: module github.com/patternforge/patternforge
+head -1 go.mod  # Should show: module github.com/Pierre-Malherbe/patternforge
 ```
 
 ### Vi/Vim Issues

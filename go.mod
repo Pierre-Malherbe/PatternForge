@@ -1,4 +1,4 @@
-module github.com/patternforge/patternforge
+module github.com/Pierre-Malherbe/patternforge
 
 go 1.21
 

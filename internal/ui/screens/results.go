@@ -3,10 +3,10 @@ package screens
 import (
 	"fmt"
 
+	"github.com/Pierre-Malherbe/patternforge/internal/claude"
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/patternforge/patternforge/internal/claude"
-	"github.com/patternforge/patternforge/internal/ui/styles"
 )
 
 // ResultsScreen displays Claude's output with stats

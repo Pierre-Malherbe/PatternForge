@@ -6,12 +6,12 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/Pierre-Malherbe/patternforge/internal/claude"
+	"github.com/Pierre-Malherbe/patternforge/internal/pattern"
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/screens"
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/patternforge/patternforge/internal/claude"
-	"github.com/patternforge/patternforge/internal/pattern"
-	"github.com/patternforge/patternforge/internal/ui/screens"
-	"github.com/patternforge/patternforge/internal/ui/styles"
 )
 
 // View represents the current screen state

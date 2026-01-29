@@ -3,10 +3,10 @@ package screens
 import (
 	"fmt"
 
+	"github.com/Pierre-Malherbe/patternforge/internal/pattern"
+	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/patternforge/patternforge/internal/pattern"
-	"github.com/patternforge/patternforge/internal/ui/styles"
 )
 
 // InputScreen allows user to paste/type their content
