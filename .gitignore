@@ -4,7 +4,8 @@ bin/
 *.dll
 *.so
 *.dylib
-patternforge
+/patternforge
+bin/patternforge
 patternforge-*
 
 # === Go Specifics ===
