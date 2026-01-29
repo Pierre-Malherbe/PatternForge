@@ -1,0 +1,36 @@
+# === Binaries & Executables ===
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+patternforge
+patternforge-*
+
+# === Go Specifics ===
+vendor/
+
+# === Tests & Coverage ===
+*.test
+*.out
+coverage.txt
+
+# === JetBrains (GoLand, IntelliJ) ===
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea/shelf/
+.idea/workspace.xml
+.idea/sonarlint/
+
+# === OS & System ===
+.DS_Store
+Thumbs.db
+
+
+*.swp
+*.swo
+*~
+*.tmp
