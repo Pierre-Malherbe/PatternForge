@@ -60,7 +60,7 @@ func (s SelectionScreen) Update(msg tea.Msg) (SelectionScreen, tea.Cmd) {
 }
 
 func (s SelectionScreen) View() string {
-	help := styles.Help.Render("↑/↓ or j/k: navigate • enter: select • m: modify • n: new • q: quit")
+	help := styles.Help.Render("↑/↓ or j/k: navigate • enter: select • m: modify • n: new • S: settings • q: quit")
 	return s.list.View() + "\n" + help
 }
 

@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/Pierre-Malherbe/patternforge/internal/claude"
+	"github.com/Pierre-Malherbe/patternforge/internal/config"
 	"github.com/Pierre-Malherbe/patternforge/internal/pattern"
 	"github.com/Pierre-Malherbe/patternforge/internal/ui/screens"
 	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
@@ -18,10 +20,12 @@ import (
 type View int
 
 const (
-	SelectionView View = iota
+	SetupView View = iota
+	SelectionView
 	InputView
 	ProcessingView
 	ResultsView
+	SettingsView
 )
 
 // Model is the main application state
@@ -31,6 +35,9 @@ type Model struct {
 	input       screens.InputScreen
 	processing  screens.ProcessingScreen
 	results     screens.ResultsScreen
+	setup       screens.SetupScreen
+	settings    screens.SettingsScreen
+	config      config.Config
 	patterns    []pattern.Pattern
 	patternsDir string
 	err         error
@@ -49,7 +56,7 @@ type ProcessedMsg struct {
 type ReloadPatternsMsg struct{}
 
 // NewModel initializes the application
-func NewModel(patternsDir string) (Model, error) {
+func NewModel(patternsDir string, cfg config.Config, firstLaunch bool) (Model, error) {
 	// Load patterns from directory
 	patterns, err := pattern.LoadAll(patternsDir)
 	if err != nil {
@@ -60,15 +67,26 @@ func NewModel(patternsDir string) (Model, error) {
 		return Model{}, fmt.Errorf("no patterns found in %s", patternsDir)
 	}
 
-	return Model{
+	m := Model{
 		view:        SelectionView,
 		selection:   screens.NewSelectionScreen(patterns),
 		patterns:    patterns,
 		patternsDir: patternsDir,
-	}, nil
+		config:      cfg,
+	}
+
+	if firstLaunch {
+		m.view = SetupView
+		m.setup = screens.NewSetupScreen()
+	}
+
+	return m, nil
 }
 
 func (m Model) Init() tea.Cmd {
+	if m.view == SetupView {
+		return m.setup.Init()
+	}
 	return nil
 }
 
@@ -110,6 +128,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 		m.view = ResultsView
 		return m, m.results.Init()
+
+	case screens.SetupCompleteMsg:
+		if err := config.Save(msg.Config); err != nil {
+			m.err = err
+			return m, nil
+		}
+		m.config = msg.Config
+		m.view = SelectionView
+		if m.width > 0 && m.height > 0 {
+			m.selection, _ = m.selection.Update(tea.WindowSizeMsg{
+				Width:  m.width,
+				Height: m.height,
+			})
+		}
+		return m, nil
+
+	case screens.SettingsSavedMsg:
+		if err := config.Save(msg.Config); err != nil {
+			m.err = err
+			return m, nil
+		}
+		m.config = msg.Config
+		m.view = SelectionView
+		return m, nil
+
+	case screens.SettingsCancelledMsg:
+		m.view = SelectionView
+		return m, nil
 	}
 
 	// Delegate to current screen
@@ -134,6 +180,10 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.view == ResultsView {
 			m.view = SelectionView
 			m.input = screens.InputScreen{} // Reset input
+			return m, nil
+		}
+		if m.view == SettingsView {
+			m.view = SelectionView
 			return m, nil
 		}
 
@@ -166,6 +216,18 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.view == ResultsView {
 			return m.copyToClipboard()
 		}
+
+	case "s":
+		if m.view == ResultsView {
+			return m.saveToFile()
+		}
+
+	case "S":
+		if m.view == SelectionView {
+			m.settings = screens.NewSettingsScreen(m.config)
+			m.view = SettingsView
+			return m, m.settings.Init()
+		}
 	}
 
 	return m.updateCurrentScreen(msg)
@@ -175,6 +237,8 @@ func (m Model) updateCurrentScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch m.view {
+	case SetupView:
+		m.setup, cmd = m.setup.Update(msg)
 	case SelectionView:
 		m.selection, cmd = m.selection.Update(msg)
 	case InputView:
@@ -183,6 +247,8 @@ func (m Model) updateCurrentScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.processing, cmd = m.processing.Update(msg)
 	case ResultsView:
 		m.results, cmd = m.results.Update(msg)
+	case SettingsView:
+		m.settings, cmd = m.settings.Update(msg)
 	}
 
 	return m, cmd
@@ -194,6 +260,8 @@ func (m Model) View() string {
 	}
 
 	switch m.view {
+	case SetupView:
+		return m.setup.View()
 	case SelectionView:
 		return m.selection.View()
 	case InputView:
@@ -202,6 +270,8 @@ func (m Model) View() string {
 		return m.processing.View()
 	case ResultsView:
 		return m.results.View()
+	case SettingsView:
+		return m.settings.View()
 	}
 
 	return ""
@@ -241,6 +311,29 @@ func (m Model) copyToClipboard() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.results.SetCopied(true)
+	return m, nil
+}
+
+// saveToFile writes the result to a timestamped markdown file in the configured save directory
+func (m Model) saveToFile() (tea.Model, tea.Cmd) {
+	saveDir := m.config.SaveDirectory
+	if saveDir == "" {
+		saveDir = config.DefaultSaveDirectory()
+	}
+
+	if err := os.MkdirAll(saveDir, 0755); err != nil {
+		m.err = fmt.Errorf("failed to create save directory: %w", err)
+		return m, nil
+	}
+
+	filename := fmt.Sprintf("result-%s.md", time.Now().Format("2006-01-02-150405"))
+	fullPath := filepath.Join(saveDir, filename)
+
+	if err := os.WriteFile(fullPath, []byte(m.results.Result()), 0644); err != nil {
+		m.err = err
+		return m, nil
+	}
+	m.results.SetSaved(fullPath)
 	return m, nil
 }
 

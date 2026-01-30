@@ -1,16 +1,18 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/Pierre-Malherbe/patternforge/internal/claude"
+	"github.com/Pierre-Malherbe/patternforge/internal/config"
 	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.0.1"
+const version = "0.0.2"
 
 func main() {
 	// Check if Claude Code is available
@@ -42,8 +44,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load configuration
+	cfg, err := config.Load()
+	firstLaunch := false
+	if err != nil {
+		if errors.Is(err, config.ErrNotFound) {
+			firstLaunch = true
+			cfg = config.Config{SaveDirectory: config.DefaultSaveDirectory()}
+		} else {
+			fmt.Println(styles.Error.Render(fmt.Sprintf("❌ %v", err)))
+			os.Exit(1)
+		}
+	}
+
 	// Initialize application
-	model, err := NewModel(patternsDir)
+	model, err := NewModel(patternsDir, cfg, firstLaunch)
 	if err != nil {
 		fmt.Println(styles.Error.Render(fmt.Sprintf("❌ %v", err)))
 		os.Exit(1)
@@ -137,6 +152,8 @@ KEYBOARD SHORTCUTS:
   New pattern:    n (opens Vi)
   Process:        Ctrl+D (in input view)
   Copy output:    y (in results view)
+  Save output:    s (in results view)
+  Settings:       S (in selection view)
   Back:           Esc
   Quit:           q
 

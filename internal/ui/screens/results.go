@@ -16,7 +16,9 @@ type ResultsScreen struct {
 	stats    claude.Stats
 	width    int
 	height   int
-	copied   bool // Show "copied!" message
+	copied    bool   // Show "copied!" message
+	saved     bool   // Show "saved!" message
+	savedPath string // Path of saved file
 }
 
 // NewResultsScreen creates the results display screen
@@ -66,16 +68,18 @@ func (s ResultsScreen) View() string {
 
 	help := styles.Help.Render("\n↑/↓ or j/k: scroll • y: copy • s: save • Esc: new pattern • q: quit")
 
-	copiedMsg := ""
+	statusMsg := ""
 	if s.copied {
-		copiedMsg = styles.Success.Render("✅ Copied to clipboard!\n")
+		statusMsg = styles.Success.Render("✅ Copied to clipboard!\n")
+	} else if s.saved {
+		statusMsg = styles.Success.Render(fmt.Sprintf("✅ Saved to %s!\n", s.savedPath))
 	}
 
 	return fmt.Sprintf("%s\n\n%s\n%s%s%s",
 		title,
 		styles.Result.Render(s.viewport.View()),
 		statsBox,
-		copiedMsg,
+		statusMsg,
 		help,
 	)
 }
@@ -88,4 +92,12 @@ func (s ResultsScreen) Result() string {
 // SetCopied shows the "copied" confirmation message
 func (s *ResultsScreen) SetCopied(copied bool) {
 	s.copied = copied
+	s.saved = false
+}
+
+// SetSaved shows the "saved" confirmation message with the file path
+func (s *ResultsScreen) SetSaved(path string) {
+	s.saved = true
+	s.savedPath = path
+	s.copied = false
 }
