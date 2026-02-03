@@ -2,6 +2,8 @@
 
 > Detailed code explanation and analysis
 
+[Category: Review]
+
 ## Prompt
 
 Analyze and explain the following code in detail:

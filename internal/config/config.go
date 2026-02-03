@@ -11,9 +11,42 @@ import (
 // ErrNotFound is returned when the settings file does not exist.
 var ErrNotFound = errors.New("settings file not found")
 
+// Repository represents a pattern repository configuration.
+type Repository struct {
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	Enabled    bool   `json:"enabled"`
+	LastUpdate string `json:"last_update,omitempty"`
+}
+
 // Config holds the application settings.
 type Config struct {
-	SaveDirectory string `json:"save_directory"`
+	SaveDirectory string       `json:"save_directory"`
+	Repositories  []Repository `json:"repositories,omitempty"`
+}
+
+// DefaultOfficialRepository returns the default official repository config.
+func DefaultOfficialRepository() Repository {
+	return Repository{
+		Name:    "official",
+		URL:     "https://github.com/Pierre-Malherbe/patternforge-patterns",
+		Enabled: true,
+	}
+}
+
+// RepositoriesDir returns the directory where repositories are cloned.
+func RepositoriesDir() string {
+	return filepath.Join(ConfigDir(), "repositories")
+}
+
+// HasEnabledRepositories checks if there are any enabled repositories.
+func (c Config) HasEnabledRepositories() bool {
+	for _, repo := range c.Repositories {
+		if repo.Enabled {
+			return true
+		}
+	}
+	return false
 }
 
 // DefaultSaveDirectory returns the default path for saving results.

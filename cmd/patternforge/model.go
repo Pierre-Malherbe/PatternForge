@@ -10,6 +10,7 @@ import (
 	"github.com/Pierre-Malherbe/patternforge/internal/claude"
 	"github.com/Pierre-Malherbe/patternforge/internal/config"
 	"github.com/Pierre-Malherbe/patternforge/internal/pattern"
+	"github.com/Pierre-Malherbe/patternforge/internal/repository"
 	"github.com/Pierre-Malherbe/patternforge/internal/ui/screens"
 	"github.com/Pierre-Malherbe/patternforge/internal/ui/styles"
 	"github.com/atotto/clipboard"
@@ -26,6 +27,8 @@ const (
 	ProcessingView
 	ResultsView
 	SettingsView
+	UpgradeView
+	VariablesView
 )
 
 // Model is the main application state
@@ -37,6 +40,8 @@ type Model struct {
 	results     screens.ResultsScreen
 	setup       screens.SetupScreen
 	settings    screens.SettingsScreen
+	upgrade     screens.UpgradeScreen
+	variables   screens.VariablesScreen
 	config      config.Config
 	patterns    []pattern.Pattern
 	patternsDir string
@@ -57,8 +62,8 @@ type ReloadPatternsMsg struct{}
 
 // NewModel initializes the application
 func NewModel(patternsDir string, cfg config.Config, firstLaunch bool) (Model, error) {
-	// Load patterns from directory
-	patterns, err := pattern.LoadAll(patternsDir)
+	// Load patterns from directory and repositories
+	patterns, err := LoadPatternsWithRepos(patternsDir, cfg)
 	if err != nil {
 		return Model{}, fmt.Errorf("failed to load patterns: %w", err)
 	}
@@ -101,7 +106,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ReloadPatternsMsg:
 		// Reload patterns from disk after Vi edit
-		patterns, _ := pattern.LoadAll(m.patternsDir)
+		patterns, _ := LoadPatternsWithRepos(m.patternsDir, m.config)
 		m.patterns = patterns
 		m.selection = screens.NewSelectionScreen(patterns)
 		// Update dimensions of the new selection screen
@@ -135,6 +140,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.config = msg.Config
+
+		// If community patterns enabled, trigger upgrade to clone repos
+		if msg.EnableCommunity && len(m.config.Repositories) > 0 {
+			m.upgrade = screens.NewUpgradeScreen()
+			m.view = UpgradeView
+			return m, m.upgrade.Init()
+		}
+
 		m.view = SelectionView
 		if m.width > 0 && m.height > 0 {
 			m.selection, _ = m.selection.Update(tea.WindowSizeMsg{
@@ -156,6 +169,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screens.SettingsCancelledMsg:
 		m.view = SelectionView
 		return m, nil
+
+	case screens.UpgradeStartMsg:
+		return m, m.runUpgrade()
+
+	case screens.UpgradeCompleteMsg:
+		m.upgrade, _ = m.upgrade.Update(msg)
+		// Update config with new timestamps
+		for i := range m.config.Repositories {
+			for _, r := range msg.Results {
+				if m.config.Repositories[i].Name == r.Name && r.Success {
+					m.config.Repositories[i].LastUpdate = repository.FormatLastUpdate()
+				}
+			}
+		}
+		config.Save(m.config)
+		return m, nil
 	}
 
 	// Delegate to current screen
@@ -173,7 +202,17 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "esc":
+		if m.view == SelectionView {
+			// Try to go back to category view
+			if m.selection.HandleEsc() {
+				return m, nil
+			}
+		}
 		if m.view == InputView {
+			m.view = SelectionView
+			return m, nil
+		}
+		if m.view == VariablesView {
 			m.view = SelectionView
 			return m, nil
 		}
@@ -186,12 +225,70 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.view = SelectionView
 			return m, nil
 		}
+		if m.view == UpgradeView && m.upgrade.IsCompleted() {
+			// Reload patterns after upgrade
+			patterns, _ := LoadPatternsWithRepos(m.patternsDir, m.config)
+			m.patterns = patterns
+			m.selection = screens.NewSelectionScreen(patterns)
+			if m.width > 0 && m.height > 0 {
+				m.selection, _ = m.selection.Update(tea.WindowSizeMsg{
+					Width:  m.width,
+					Height: m.height,
+				})
+			}
+			m.view = SelectionView
+			return m, nil
+		}
 
 	case "enter":
 		if m.view == SelectionView {
+			// First check if we're in category mode
+			if m.selection.HandleEnter() {
+				// Category was selected, stay in selection view
+				return m, nil
+			}
+
+			// We're in pattern mode, select the pattern
 			p, ok := m.selection.SelectedPattern()
 			if ok {
+				if p.HasVariables() {
+					// Pattern has variables, show variable form
+					m.variables = screens.NewVariablesScreen(p)
+					if m.width > 0 && m.height > 0 {
+						m.variables, _ = m.variables.Update(tea.WindowSizeMsg{
+							Width:  m.width,
+							Height: m.height,
+						})
+					}
+					m.view = VariablesView
+					return m, m.variables.Init()
+				}
 				m.input = screens.NewInputScreen(p)
+				// Forward window size to input screen
+				if m.width > 0 && m.height > 0 {
+					m.input, _ = m.input.Update(tea.WindowSizeMsg{
+						Width:  m.width,
+						Height: m.height,
+					})
+				}
+				m.view = InputView
+				return m, m.input.Init()
+			}
+		}
+
+		if m.view == VariablesView {
+			// Check if variables form is complete
+			if m.variables.IsComplete() {
+				p := m.variables.Pattern()
+				vars := m.variables.Values()
+				m.input = screens.NewInputScreenWithVariables(p, vars)
+				// Forward window size to input screen
+				if m.width > 0 && m.height > 0 {
+					m.input, _ = m.input.Update(tea.WindowSizeMsg{
+						Width:  m.width,
+						Height: m.height,
+					})
+				}
 				m.view = InputView
 				return m, m.input.Init()
 			}
@@ -228,6 +325,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.view = SettingsView
 			return m, m.settings.Init()
 		}
+
+	case "U":
+		if m.view == SelectionView {
+			return m.startUpgrade()
+		}
 	}
 
 	return m.updateCurrentScreen(msg)
@@ -249,6 +351,10 @@ func (m Model) updateCurrentScreen(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.results, cmd = m.results.Update(msg)
 	case SettingsView:
 		m.settings, cmd = m.settings.Update(msg)
+	case UpgradeView:
+		m.upgrade, cmd = m.upgrade.Update(msg)
+	case VariablesView:
+		m.variables, cmd = m.variables.Update(msg)
 	}
 
 	return m, cmd
@@ -272,6 +378,10 @@ func (m Model) View() string {
 		return m.results.View()
 	case SettingsView:
 		return m.settings.View()
+	case UpgradeView:
+		return m.upgrade.View()
+	case VariablesView:
+		return m.variables.View()
 	}
 
 	return ""
@@ -281,20 +391,26 @@ func (m Model) View() string {
 func (m Model) startProcessing() (tea.Model, tea.Cmd) {
 	p, _ := m.selection.SelectedPattern()
 	userInput := m.input.Value()
+	variables := m.input.Variables()
 
 	m.processing = screens.NewProcessingScreen()
 	m.view = ProcessingView
 
 	return m, tea.Batch(
 		m.processing.Init(),
-		m.callClaude(p, userInput),
+		m.callClaude(p, userInput, variables),
 	)
 }
 
 // callClaude executes the prompt via Claude Code
-func (m Model) callClaude(p pattern.Pattern, userInput string) tea.Cmd {
+func (m Model) callClaude(p pattern.Pattern, userInput string, variables map[string]string) tea.Cmd {
 	return func() tea.Msg {
-		fullPrompt := p.Render(userInput)
+		var fullPrompt string
+		if len(variables) > 0 {
+			fullPrompt = p.RenderWithVariables(userInput, variables)
+		} else {
+			fullPrompt = p.Render(userInput)
+		}
 		result, stats, err := claude.Execute(fullPrompt)
 		return ProcessedMsg{
 			result: result,
@@ -373,4 +489,43 @@ Instructions after input...
 	return m, tea.ExecProcess(exec.Command("vi", filename), func(err error) tea.Msg {
 		return ReloadPatternsMsg{}
 	})
+}
+
+// startUpgrade switches to upgrade view and starts the sync process
+func (m Model) startUpgrade() (tea.Model, tea.Cmd) {
+	if len(m.config.Repositories) == 0 {
+		m.err = fmt.Errorf("no repositories configured. Use 'patternforge repo add <url>' to add one")
+		return m, nil
+	}
+
+	if !repository.IsGitAvailable() {
+		m.err = fmt.Errorf("git is not installed. Cannot upgrade repositories")
+		return m, nil
+	}
+
+	m.upgrade = screens.NewUpgradeScreen()
+	m.view = UpgradeView
+
+	return m, m.upgrade.Init()
+}
+
+// runUpgrade executes the repository sync in the background
+func (m Model) runUpgrade() tea.Cmd {
+	return func() tea.Msg {
+		// Convert config.Repository to repository.Repository
+		repos := make([]repository.Repository, len(m.config.Repositories))
+		for i, r := range m.config.Repositories {
+			repos[i] = repository.Repository{
+				Name:       r.Name,
+				URL:        r.URL,
+				Enabled:    r.Enabled,
+				LastUpdate: r.LastUpdate,
+			}
+		}
+
+		mgr := repository.NewManager(config.RepositoriesDir(), repos)
+		results := mgr.UpdateAll()
+
+		return screens.UpgradeCompleteMsg{Results: results}
+	}
 }

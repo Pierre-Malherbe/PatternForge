@@ -25,41 +25,87 @@ The app uses the **Elm Architecture** via Bubbletea. The central state machine i
 ### State Machine Flow
 
 ```
-SelectionView → (enter) → InputView → (Ctrl+D) → ProcessingView → (auto) → ResultsView
-     ↑              ↑                                                           |
-     |              └── (Esc) ─────────────────────────────────────────────────┘
-     └── (m) → Vi edit → ReloadPatternsMsg ─┐
-     └── (n) → Vi create → ReloadPatternsMsg ┘
+CategoryView → (enter) → SelectionView → (enter) → [VariablesView →] InputView → (Ctrl+D) → ProcessingView → ResultsView
+     ↑              ↑            ↑                                                                              |
+     |              |            └── (Esc) ────────────────────────────────────────────────────────────────────┘
+     |              └── (Esc) ─────────────────────────────────────────────────────────────────────────────────┘
+     └── (m) → Vi edit → ReloadPatternsMsg
+     └── (n) → Vi create → ReloadPatternsMsg
+     └── (U) → UpgradeView → (Esc) ──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Package Layout
 
-- **`cmd/patternforge/`** — Application layer. `main.go` handles CLI startup (checks Claude availability, sets up patterns dir). `model.go` is the Bubbletea Model with view enum (`SelectionView`, `InputView`, `ProcessingView`, `ResultsView`), keyboard routing, and view transitions.
-- **`internal/pattern/`** — Domain layer. Loads `.md` files from the patterns directory, parses markdown structure (emoji, name, description, prompt body), and handles `{{input}}` template substitution. If `{{input}}` is absent, user content is appended.
-- **`internal/claude/`** — Service layer. Executes `claude ask --print` as a subprocess with the rendered prompt on stdin. Returns output plus stats (duration, estimated tokens at ~4 chars/token).
-- **`internal/ui/screens/`** — Each screen (`selection.go`, `input.go`, `processing.go`, `results.go`) is a self-contained Bubbletea component with `Init()`, `Update()`, `View()` methods.
+- **`cmd/patternforge/`** — Application layer. `main.go` handles CLI startup, subcommands (`upgrade`, `repo`), and pattern loading. `model.go` is the Bubbletea Model with view enum, keyboard routing, and view transitions.
+- **`internal/pattern/`** — Domain layer. Loads `.md` files, parses markdown structure (emoji, name, description, category, variables, prompt), handles `{{input}}` and `{{var:name}}` substitution.
+- **`internal/repository/`** — Git operations for cloning/pulling pattern repositories.
+- **`internal/config/`** — Configuration management including repositories.
+- **`internal/claude/`** — Service layer. Executes `claude ask --print` as a subprocess.
+- **`internal/ui/screens/`** — Each screen is a self-contained Bubbletea component.
 - **`internal/ui/styles/`** — Centralized Lipgloss style definitions.
 - **`patterns/`** — User-facing markdown pattern files loaded at startup.
 
 ### Pattern File Format
 
+#### Basic Pattern
 ```markdown
 # [EMOJI] [TITLE]
 > [One-line description]
+
+[Category: CategoryName]
 
 ## Prompt
 
 [Instructions with optional {{input}} placeholder]
 ```
 
+#### Pattern with Variables
+```markdown
+# [EMOJI] [TITLE]
+> [One-line description]
+
+[Category: CategoryName]
+
+## Variables
+
+- name: Label | type | options | default | placeholder
+- priority: Priority | select | low,medium,high | medium
+- env: Environment | select | dev,staging,prod | dev
+
+## Prompt
+
+Your prompt using {{var:priority}} and {{var:env}} placeholders.
+
+{{input}}
+```
+
+Variable types:
+- `text` - Simple text input (default)
+- `select` - Dropdown with options (comma-separated)
+- `multiline` - Multi-line text area
+
+### Repository System
+
+Patterns can be loaded from:
+1. Local directory (highest priority)
+2. Community repositories (cloned via git)
+
+Commands:
+- `patternforge upgrade` - Sync all repositories
+- `patternforge repo list` - List configured repositories
+- `patternforge repo add <url>` - Add a repository
+- `patternforge repo remove <name>` - Remove a repository
+
 ## Key Bubbletea Patterns Used
 
 - **`tea.ExecProcess`** — Used to shell out to Vi for pattern editing, then sends `ReloadPatternsMsg` on return.
 - **`tea.Batch`** — Used in `startProcessing()` to run the spinner animation and Claude execution concurrently.
-- **`WindowSizeMsg` forwarding** — Must be passed to `ResultsScreen` on creation (not just on resize) to avoid empty viewport on first load.
+- **`WindowSizeMsg` forwarding** — Must be passed to screens on creation (not just on resize) to avoid empty viewport on first load.
 
 ## Known Pitfalls
 
-1. **Viewport empty on first load**: `ResultsScreen` must receive a `WindowSizeMsg` immediately after creation in the `ProcessedMsg` handler, not just from window resize events.
+1. **Viewport empty on first load**: Screens must receive a `WindowSizeMsg` immediately after creation, not just from window resize events.
 2. **Pattern list stale after Vi edit**: The `ReloadPatternsMsg` handler must both reload patterns and re-send `WindowSizeMsg` to the new `SelectionScreen`.
 3. **New pattern filename collisions**: New patterns use `new-pattern-{unix_timestamp}.md` to avoid overwrites.
+4. **Category view skip**: If only one category exists, the app skips directly to pattern list.
+5. **Variables view conditional**: Only shown for patterns with `## Variables` section.

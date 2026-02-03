@@ -2,6 +2,8 @@
 
 > Create concise summaries of content
 
+[Category: General]
+
 ## Prompt
 
 Summarize the following content concisely and clearly:

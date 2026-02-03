@@ -4,13 +4,16 @@
 
 PatternForge is a blazing-fast TUI (Terminal User Interface) that brings the power of [Fabric](https://github.com/danielmiessler/fabric)-style patterns to Claude Code. Create, edit, and manage reusable AI prompts with an elegant interface and Vim-style keybindings.
 
-![Version](https://img.shields.io/badge/version-0.0.1-blue)
+![Version](https://img.shields.io/badge/version-0.0.3-blue)
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## ✨ Features
 
 - 🎯 **Dynamic Pattern Loading** - Patterns are markdown files you can edit anytime
+- 📁 **Category Navigation** - Organize patterns by category (Bug, Tickets, Refactor, etc.)
+- ⚙️ **Pattern Variables** - Forms with configurable fields (priority, environment, etc.)
+- 🌐 **Community Patterns** - Clone and sync patterns from git repositories
 - 📝 **{{input}} Templating** - Control exactly where user content goes
 - ⚡ **Vim Keybindings** - j/k navigation, natural for terminal users
 - 🔧 **Live Editing** - Press `m` to edit patterns in Vi, changes apply instantly
@@ -25,17 +28,22 @@ PatternForge is a blazing-fast TUI (Terminal User Interface) that brings the pow
 # 1. Launch PatternForge
 $ patternforge
 
-# 2. Select a pattern (j/k to navigate)
-> 📊 Mermaid Map
+# 2. Select a category, then a pattern
+> 📁 Tickets
+  > 🎫 Create Ticket ⚙️
 
-# 3. Paste your content, press Ctrl+D
+# 3. Fill in variables (if pattern has them)
+Priority: [low] medium [high]
+Type: [bug] feature [task]
 
-# 4. Get beautiful results with stats
+# 4. Paste your content, press Ctrl+D
+
+# 5. Get beautiful results with stats
 ✨ Result
-[Your Mermaid diagram here]
+[Your formatted ticket here]
 📊 172 tokens input + 612 output = 784 total | 3.2s
 
-# 5. Press 'y' to copy output
+# 6. Press 'y' to copy output
 ```
 
 ## 📦 Installation
@@ -48,7 +56,8 @@ $ patternforge
    pip install claude-code
    claude auth login
    ```
-3. **Vi/Vim** - For editing patterns (usually pre-installed on macOS/Linux)
+3. **Git** - For community patterns (optional)
+4. **Vi/Vim** - For editing patterns (usually pre-installed on macOS/Linux)
 
 ### Build from Source
 
@@ -67,10 +76,6 @@ make build
 make install
 ```
 
-### macOS Binary (Coming Soon)
-
-Pre-built binaries for Apple Silicon and Intel Macs will be available on the releases page.
-
 ## 🚀 Usage
 
 ### Basic Usage
@@ -83,35 +88,65 @@ patternforge
 patternforge ~/my-patterns
 ```
 
+### CLI Commands
+
+```bash
+# Sync community patterns from repositories
+patternforge upgrade
+
+# List configured repositories
+patternforge repo list
+
+# Add a pattern repository
+patternforge repo add https://github.com/user/patterns-repo
+
+# Remove a repository
+patternforge repo remove <name>
+```
+
 ### First Run
 
 On first run, PatternForge will:
-1. ✅ Check if Claude Code is installed and functional
-2. 📁 Create a `patterns/` directory
-3. 📝 Add a default Mermaid Map pattern
+1. ✅ Check if Claude Code is installed
+2. 📁 Ask where to save results
+3. 🌐 Offer to enable community patterns (clones official repo)
 4. 🎯 Launch the TUI
 
 ### Workflow
 
-1. **Select Pattern** - Use `j/k` or arrow keys, press `enter`
-2. **Input Content** - Paste or type your content
-3. **Process** - Press `Ctrl+D` to send to Claude Code
-4. **View Results** - Scroll through output, see token stats
-5. **Copy/Save** - Press `y` to copy, or `s` to save to file
+1. **Select Category** - Browse patterns by category
+2. **Select Pattern** - Use `j/k` or arrow keys, press `enter`
+3. **Configure Variables** - Fill in form fields (if pattern has variables)
+4. **Input Content** - Paste or type your content
+5. **Process** - Press `Ctrl+D` to send to Claude Code
+6. **View Results** - Scroll through output, see token stats
+7. **Copy/Save** - Press `y` to copy, or `s` to save to file
 
-## ⌨️  Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
-### Pattern Selection Screen
+### Category/Pattern Selection Screen
 
 | Key | Action |
 |-----|--------|
 | `j` / `↓` | Move down |
 | `k` / `↑` | Move up |
-| `enter` | Select pattern |
+| `enter` | Select category/pattern |
+| `esc` | Back to categories |
 | `m` | Modify selected pattern (opens Vi) |
 | `n` | Create new pattern (opens Vi) |
-| `/` | Search patterns |
+| `U` | Upgrade/sync repositories |
+| `S` | Settings |
+| `/` | Search |
 | `q` | Quit |
+
+### Variables Screen
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` / `Tab` | Navigate fields |
+| `←` / `→` | Change selection (for select fields) |
+| `enter` | Continue to input |
+| `esc` | Back |
 
 ### Input Screen
 
@@ -119,7 +154,6 @@ On first run, PatternForge will:
 |-----|--------|
 | `Ctrl+D` | Process with Claude Code |
 | `Esc` | Back to pattern selection |
-| `m` | Edit current pattern |
 
 ### Results Screen
 
@@ -135,20 +169,71 @@ On first run, PatternForge will:
 
 Patterns are simple Markdown files in the `patterns/` directory.
 
-### Pattern Template
+### Basic Pattern
 
 ```markdown
-# [EMOJI] [PATTERN NAME]
+# 🔍 Code Review
 
-> [One-line description]
+> Review code for bugs and improvements
+
+[Category: Review]
 
 ## Prompt
 
-[Your prompt instructions]
+Analyze this code and provide feedback:
 
 {{input}}
 
-[More instructions after user content]
+Include:
+1. Bugs found
+2. Improvements
+3. Security issues
+```
+
+### Pattern with Variables
+
+Add configurable fields that appear as a form before input:
+
+```markdown
+# 🎫 Create Ticket
+
+> Generate a well-structured ticket
+
+[Category: Tickets]
+
+## Variables
+
+- priority: Priority | select | low,medium,high,critical | medium
+- type: Type | select | bug,feature,task | task
+- env: Environment | select | dev,staging,prod | prod
+
+## Prompt
+
+Create a ticket with:
+- Priority: {{var:priority}}
+- Type: {{var:type}}
+- Environment: {{var:env}}
+
+Description:
+{{input}}
+```
+
+### Variable Definition Format
+
+```
+- name: Label | type | options | default | placeholder
+```
+
+**Types:**
+- `text` - Simple text input (default)
+- `select` - Dropdown with options (comma-separated)
+- `multiline` - Multi-line text area
+
+**Examples:**
+```markdown
+- priority: Priority | select | low,medium,high | medium
+- description: Description | text | | | Enter details...
+- notes: Notes | multiline
 ```
 
 ### The {{input}} Variable
@@ -162,93 +247,65 @@ Analyze this code:
 
 {{input}}
 
-Provide:
-1. Bugs found
-2. Improvements
-3. Security issues
+Provide detailed feedback.
 ```
 
 **Without {{input}}**: User content is appended at the end.
 
-### Creating a New Pattern
+## 🌐 Community Patterns
 
-**Method 1: Via TUI**
+### Official Repository
+
+Add the official patterns repository:
+
 ```bash
-# In PatternForge, press 'n'
-# Vi opens with template
-# Edit, save (:wq), done!
+patternforge repo add https://github.com/Pierre-Malherbe/patternforge-patterns
+patternforge upgrade
 ```
 
-**Method 2: Manually**
+Or enable during first launch setup.
+
+### Pattern Sources
+
+Patterns are loaded from multiple sources with priority:
+1. **Local patterns** (`./patterns`) - Highest priority
+2. **Community patterns** (from repositories) - Merged, local wins on conflict
+
+### Managing Repositories
+
 ```bash
-# Create a file in patterns/
-vi patterns/my-pattern.md
+# List all configured repos
+patternforge repo list
 
-# Write your pattern
-# Save and reload PatternForge
+# Add a new repository
+patternforge repo add https://github.com/user/patterns
+
+# Remove a repository
+patternforge repo remove patterns
+
+# Sync all repositories (also available via 'U' key in TUI)
+patternforge upgrade
 ```
 
-### Example Patterns
+## 🏗️ Architecture
 
-**Code Review Pattern:**
-```markdown
-# 🔍 Code Review
-
-> Comprehensive code review with scoring
-
-## Prompt
-
-Perform a professional code review:
-
-{{input}}
-
-Provide:
-1. Overall score (X/10)
-2. Strengths (3-5 points)
-3. Issues (with severity levels)
-4. Refactored version
-5. Learning points
-```
-
-**Summarize Pattern:**
-```markdown
-# 📝 Summarize
-
-> Create concise summaries
-
-## Prompt
-
-Summarize this content concisely:
-
-{{input}}
-
-Max 150 words, keep essential points only.
-```
-
-## 🏗️  Architecture
-
-PatternForge follows **Clean Architecture** principles for maintainability:
+PatternForge follows **Clean Architecture** principles:
 
 ```
 PatternForge/
-├── cmd/patternforge/     # Entrypoint, main application
-│   ├── main.go           # CLI initialization
+├── cmd/patternforge/     # Application entrypoint
+│   ├── main.go           # CLI & subcommands
 │   └── model.go          # Main TUI model (state machine)
 ├── internal/
-│   ├── pattern/          # Pattern loading & parsing
+│   ├── pattern/          # Pattern loading, parsing, variables
+│   ├── repository/       # Git operations for community patterns
+│   ├── config/           # Settings & repository configuration
 │   ├── claude/           # Claude Code executor
 │   └── ui/
-│       ├── screens/      # Individual screens (selection, input, results)
-│       ├── components/   # Reusable UI components
+│       ├── screens/      # TUI screens (selection, variables, input, results)
 │       └── styles/       # Centralized lipgloss styles
-└── patterns/             # User's pattern files
+└── patterns/             # User's local pattern files
 ```
-
-**Why this structure?**
-- **Testable**: Each package has single responsibility
-- **Maintainable**: Clear separation of concerns
-- **Extensible**: Easy to add new features or patterns
-- **Clean**: No circular dependencies
 
 ## 🔧 Development
 
@@ -269,102 +326,43 @@ make build-macos
 # bin/patternforge-darwin-amd64
 ```
 
-### Project Structure Explained
-
-**`internal/pattern`**: Core domain logic
-- Loads .md files from disk
-- Parses markdown structure
-- Handles {{input}} templating
-
-**`internal/claude`**: External service integration
-- Executes Claude Code CLI
-- Manages temp files
-- Estimates token usage
-
-**`internal/ui/screens`**: View layer (Bubbletea screens)
-- `selection.go`: Pattern list
-- `input.go`: Content input
-- `processing.go`: Loading spinner
-- `results.go`: Output display
-
-**`cmd/patternforge`**: Application layer
-- Ties everything together
-- State machine (view transitions)
-- Keyboard shortcut handling
-
-## 🎯 Common Use Cases
-
-### Development
-
-- **Code Review**: Analyze code for bugs and improvements
-- **Explain Code**: Break down complex algorithms
-- **Generate Docs**: Create documentation from code
-- **Write Tests**: Generate unit tests
-
-### Content Creation
-
-- **Blog Posts**: Draft articles with AI assistance
-- **Social Media**: Create engaging posts
-- **Email Templates**: Professional email composition
-- **SEO Content**: Optimize content for search
-
-### Data & Analysis
-
-- **Summarize Reports**: Condense long documents
-- **Extract Insights**: Pull key findings from data
-- **Create Visualizations**: Generate Mermaid diagrams
-- **Data Stories**: Transform numbers into narratives
-
 ## 🐛 Troubleshooting
 
 **Q: "claude CLI not found"**
 ```bash
-# Install Claude Code
 pip install claude-code
-
-# Verify installation
 claude --version
 ```
 
 **Q: "Pattern not showing up"**
 - Check file is in `patterns/` directory
 - Ensure filename ends with `.md`
-- Restart PatternForge or reload patterns
+- Press `U` to reload or restart PatternForge
 
-**Q: "Vi/Vim not found"**
-```bash
-# macOS (should be pre-installed)
-which vim
+**Q: "Variables not working"**
+- Check `## Variables` section exists
+- Format: `- name: Label | type | options | default`
+- Use `{{var:name}}` in prompt
 
-# If missing, install via Homebrew
-brew install vim
-```
-
-**Q: "Copy (y) not working"**
-- Ensure clipboard tools are installed
-- macOS: Uses `pbcopy` (built-in)
-- Linux: Install `xclip` or `xsel`
-
-**Q: "{{input}} not replaced"**
-- Check spelling: must be exactly `{{input}}`
-- Case-sensitive
-- No spaces inside braces
+**Q: "Repository sync failed"**
+- Ensure git is installed: `git --version`
+- Check internet connection
+- Verify repository URL is correct
 
 ## 📚 Resources
 
 - **Claude Code Docs**: https://docs.anthropic.com/claude/docs/claude-code
 - **Fabric Project**: https://github.com/danielmiessler/fabric
+- **Official Patterns**: https://github.com/Pierre-Malherbe/patternforge-patterns
 - **Bubbletea**: https://github.com/charmbracelet/bubbletea
-- **Pattern Examples**: See `patterns/` directory
 
 ## 🤝 Contributing
 
 Contributions welcome! Areas for improvement:
 
-- [ ] More default patterns
+- [ ] More community patterns
 - [ ] Pattern validation
 - [ ] Export results (PDF, HTML)
-- [ ] Pattern marketplace/sharing
 - [ ] Custom themes
 - [ ] Windows support testing
 
